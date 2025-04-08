@@ -4,7 +4,7 @@ out = 'out'
 libs = ['lib']
 solc_version = '0.8.24'
 
-
+env = { SEPOLIA_RPC_URL = "https://sepolia.infura.io/v3/03916f868935405e8b03dac03da80556" }
 remappings = [
     '@openzeppelin/=lib/openzeppelin-contracts/contracts/'
 ]

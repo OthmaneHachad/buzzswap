@@ -5,30 +5,33 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./interfaces/IBondingCurve.sol";
 
 contract BuzzSwapPair is ERC20 {
     address public token0;
     address public token1;
+    IBondingCurve public bondingCurve;
 
     uint112 private reserve0;
     uint112 private reserve1;
 
-    constructor(address _token0, address _token1) ERC20("Buzz LP Token", "BLP") {
-        require(_token0 != _token1, "Identical Tokens");
-        token0 = _token0;
-        token1 = _token1;
-    }
+    /**
+     * this contract is getting deployed using create2(), so constructor remains argument-less
+     */
+    constructor() ERC20("Buzz LP Token", "BLP") {}
 
     /**
      * Only purpose is for deploying using create2 / assembly
      * @param _token0 token A
      * @param _token1 token B
      */
-    function initialize(address _token0, address _token1) external {
+    function initialize(address _token0, address _token1, address _bondingCurve) external {
         require(token0 == address(0) && token1 == address(0), "Already initialized");
         token0 = _token0;
         token1 = _token1;
+        bondingCurve = IBondingCurve(_bondingCurve);
     }
+
 
     function getReserves() public view returns (uint112, uint112) {
         return (reserve0, reserve1);
@@ -88,10 +91,9 @@ contract BuzzSwapPair is ERC20 {
         IERC20(tokenIn_).transferFrom(msg.sender, address(this), amountIn);
 
         uint balanceIn = IERC20(tokenIn_).balanceOf(address(this));
-        uint balanceOut = IERC20(tokenOut_).balanceOf(address(this));
+        uint effectiveIn = balanceIn - reserveIn;
 
-        uint amountInWithFee = (balanceIn - reserveIn) * 997; // 0.3% fee
-        amountOut = (amountInWithFee * reserveOut) / (reserveIn * 1000 + amountInWithFee);
+        amountOut = bondingCurve.getAmountOut(effectiveIn, reserveIn, reserveOut);
 
         require(amountOut > 0, "Insufficient output");
         IERC20(tokenOut_).transfer(msg.sender, amountOut);
