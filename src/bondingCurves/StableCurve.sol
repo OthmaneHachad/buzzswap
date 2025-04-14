@@ -7,7 +7,7 @@ contract StableCurve is IBondingCurve {
 
     uint256 public immutable A; // amplification coeff
     constructor(uint256 _A) {
-        require(_A >= 1, "Ampliffcation factor must be >= 1");
+        require(_A >= 1, "Amplification factor must be >= 1");
         A = _A;
     }
 
@@ -27,16 +27,15 @@ contract StableCurve is IBondingCurve {
         uint256 reserveOut
     ) external view override returns (uint256 amountOut) {
         uint256 amountInWithFee = (amountIn * 999) / 1000;
-        uint256 D = reserveIn + reserveOut;
-        uint256 newReserveIn = reserveIn + amountInWithFee;
 
-        uint256 weightedIn = newReserveIn * A;
-        uint256 newReserveOut = (D * A * 1e18) / (weightedIn + A * 1e18);
-        newReserveOut = newReserveOut / 1e18;
+        uint256 x = reserveIn + amountInWithFee;
+        uint256 y = reserveOut;
 
-        if (newReserveOut > reserveOut) return 0;
+        uint256 D = _getD(x, y, A);
+        uint256 yNew = _getY(x, D, A);
 
-        amountOut = reserveOut - newReserveOut;
+        require(yNew <= y, "StableCurve: overflow");
+        amountOut = y - yNew;
     }
 
     /// @notice Computes StableSwap invariant D for 2-token pool
@@ -51,12 +50,18 @@ contract StableCurve is IBondingCurve {
 
     /// @notice Solves for new reserveOut y given x and invariant D
     function _getY(uint256 x, uint256 D, uint256 amp) internal pure returns (uint256 y) {
+        uint256 Ann = amp * 2; // A * n^n, n = 2 tokens
+        uint256 c = (D * D) / (x * 2); // D^2 / (x * 2)
+        c = (c * D) / (Ann * 4);       // Scale c
+        uint256 b = x + D / Ann;       // x + D / (A * n)
+
         y = D;
         for (uint256 i = 0; i < 255; ++i) {
             uint256 y_prev = y;
-            uint256 denom = 2 * y + x + amp;
-            uint256 k = (y * y + x * x) * amp;
-            y = k / denom;
+            uint256 numerator = y * y + c;
+            uint256 denominator = (2 * y) + b - D;
+            y = numerator / denominator;
+
             if (_abs(int256(y) - int256(y_prev)) <= 1) break;
         }
     }

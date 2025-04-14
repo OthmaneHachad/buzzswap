@@ -15,6 +15,15 @@ contract BuzzSwapPair is ERC20 {
     uint112 private reserve0;
     uint112 private reserve1;
 
+    event Swap(
+        address indexed sender,
+        address indexed recipient,
+        address tokenIn,
+        address tokenOut,
+        uint amountIn,
+        uint amountOut
+    );
+
     /**
      * this contract is getting deployed using create2(), so constructor remains argument-less
      */
@@ -42,9 +51,7 @@ contract BuzzSwapPair is ERC20 {
         reserve1 = uint112(balance1);
     }
 
-    function addLiquidity(uint amount0, uint amount1) external returns (uint liquidity) {
-        IERC20(token0).transferFrom(msg.sender, address(this), amount0);
-        IERC20(token1).transferFrom(msg.sender, address(this), amount1);
+    function addLiquidity(uint amount0, uint amount1, address recipient) external returns (uint liquidity) {
 
         uint _totalSupply = totalSupply();
         if (_totalSupply == 0) {
@@ -57,7 +64,7 @@ contract BuzzSwapPair is ERC20 {
         }
 
         require(liquidity > 0, "Insufficient liquidity minted");
-        _mint(msg.sender, liquidity); // mint LP Tokens
+        _mint(recipient, liquidity); // mint LP Tokens
 
         _update(
             IERC20(token0).balanceOf(address(this)),
@@ -65,38 +72,53 @@ contract BuzzSwapPair is ERC20 {
         );
     }
 
-    function removeLiquidity() external returns (uint amount0, uint amount1) {
-        uint liquidity = balanceOf(msg.sender); // returns number of LP tokens
-        require(liquidity > 0, "nothing to burn");
+    function removeLiquidity(address from) external returns (uint amount0, uint amount1) {
+        uint liquidity = balanceOf(address(this)); // returns number of LP tokens
+        require(liquidity > 0,"nothing to burn");
 
         uint _totalSupply = totalSupply();
 
         amount0 = (liquidity * reserve0) / _totalSupply;
         amount1 = (liquidity * reserve1) / _totalSupply;
 
-        _burn(msg.sender, liquidity);
+        _burn(address(this), liquidity);
         _update(reserve0 - amount0, reserve1 - amount1);
 
-        IERC20(token0).transfer(msg.sender, amount0);
-        IERC20(token1).transfer(msg.sender, amount1);
+        IERC20(token0).transfer(from, amount0);
+        IERC20(token1).transfer(from, amount1);
     }
 
-    function swap(uint amountIn, address tokenIn) external returns (uint amountOut) {
+    function swap(address tokenIn, address recipient) external returns (uint amountOut) {
         require(tokenIn == token0 || tokenIn == token1, "Invalid token");
 
         bool isToken0In = tokenIn == token0;
         (address tokenIn_, address tokenOut_, uint112 reserveIn, uint112 reserveOut) =
             isToken0In ? (token0, token1, reserve0, reserve1) : (token1, token0, reserve1, reserve0);
 
-        IERC20(tokenIn_).transferFrom(msg.sender, address(this), amountIn);
+        // Now pull old reserve reserves
+        (reserveIn, reserveOut) = isToken0In ? (reserve0, reserve1) : (reserve1, reserve0);
 
-        uint balanceIn = IERC20(tokenIn_).balanceOf(address(this));
+        // Add reserve sync before effectiveIn
+        _update(
+            IERC20(token0).balanceOf(address(this)),
+            IERC20(token1).balanceOf(address(this))
+        );
+        uint balanceIn = IERC20(tokenIn_).balanceOf(address(this)); // = reserveIn + tokensIn
         uint effectiveIn = balanceIn - reserveIn;
+        require(effectiveIn > 0, "swapping 0 tokens, aborting");
 
         amountOut = bondingCurve.getAmountOut(effectiveIn, reserveIn, reserveOut);
 
         require(amountOut > 0, "Insufficient output");
-        IERC20(tokenOut_).transfer(msg.sender, amountOut);
+        // FIGURE THIS SHIT OUT
+        /**
+         * NO TOKENS ARE SHOWING IN THE msg.sender's WALLET
+         * 
+         */
+        uint256 userBalanceOfTokenOutBefore = IERC20(tokenOut_).balanceOf(recipient);
+        bool transferredTokenOutToUser = IERC20(tokenOut_).transfer(recipient, amountOut);
+        require(transferredTokenOutToUser == true, "failed to send tokenOut to user");
+        require(IERC20(tokenOut_).balanceOf(recipient) > userBalanceOfTokenOutBefore, "Balance of Token Out stayed unchanged");
 
         _update(
             IERC20(token0).balanceOf(address(this)),
@@ -121,4 +143,15 @@ contract BuzzSwapPair is ERC20 {
     function min(uint x, uint y) internal pure returns (uint z) {
         z = x < y ? x : y;
     }
+
+    function getBondingCurve() external view returns (address) {
+        return address(bondingCurve);
+    }
+    function getToken0() external view returns (address) {
+        return token0;
+    }
+    function getToken1() external view returns (address) {
+        return token1;
+    }
+
 }

@@ -4,10 +4,14 @@ pragma solidity ^0.8.24;
 import "../interfaces/IBondingCurve.sol";
 
 contract ConstantProductCurve is IBondingCurve {
+
+    constructor() {}
+
     /**
      * Notes:
      *      - highly responsive to imbalance (slippage)
      *      - industry standard
+     *      - used by Uniswap
      * 
      * 
      * @param amountIn amount to be swapped

@@ -18,26 +18,27 @@ contract BuzzSwapRouter {
         uint amountA,
         uint amountB
     ) external returns (uint liquidity) {
-        address pair = factory.getPair(tokenA, tokenB);
-        if (pair == address(0)) {
-            pair = factory.createPair(tokenA, tokenB);
-        }
+        address pair = factory.getSortedPair(tokenA, tokenB);
+        require(pair != address(0), "invalid pool address");
+        // if (pair == address(0)) {
+        //     pair = factory.createPair(tokenA, tokenB,);
+        // }
 
         IERC20(tokenA).transferFrom(msg.sender, pair, amountA);
         IERC20(tokenB).transferFrom(msg.sender, pair, amountB);
 
-        liquidity = BuzzSwapPair(pair).addLiquidity(amountA, amountB);
+        liquidity = BuzzSwapPair(pair).addLiquidity(amountA, amountB, msg.sender);
     }
 
     function removeLiquidity(
         address tokenA,
         address tokenB
     ) external returns (uint amount0, uint amount1) {
-        address pair = factory.getPair(tokenA, tokenB);
+        address pair = factory.getSortedPair(tokenA, tokenB);
         require(pair != address(0), "BuzzSwapRouter: PAIR_NOT_EXIST");
 
         IERC20(pair).transferFrom(msg.sender, pair, IERC20(pair).balanceOf(msg.sender));
-        (amount0, amount1) = BuzzSwapPair(pair).removeLiquidity();
+        (amount0, amount1) = BuzzSwapPair(pair).removeLiquidity(msg.sender);
     }
 
     function swapExactTokensForTokens(
@@ -45,14 +46,19 @@ contract BuzzSwapRouter {
         address tokenIn,
         address tokenOut
     ) external returns (uint amountOut) {
-        address pair = factory.getPair(tokenIn, tokenOut);
+        address pair = factory.getSortedPair(tokenIn, tokenOut);
         require(pair != address(0), "BuzzSwapRouter: PAIR_NOT_EXIST");
 
-        IERC20(tokenIn).transferFrom(msg.sender, pair, amountIn);
-        amountOut = BuzzSwapPair(pair).swap(amountIn, tokenIn);
+        bool transferUserFundsToPair = IERC20(tokenIn).transferFrom(msg.sender, pair, amountIn);
+        require(transferUserFundsToPair == true, "transfer of tokenIn from user's wallet failed");
+        amountOut = BuzzSwapPair(pair).swap(tokenIn, msg.sender);
     }
 
     function getPairAddress(address tokenA, address tokenB) external view returns (address) {
-        return factory.getPair(tokenA, tokenB);
+        return factory.getSortedPair(tokenA, tokenB);
+    }
+
+    function getFactory() external view returns (address) {
+        return address(factory);
     }
 }

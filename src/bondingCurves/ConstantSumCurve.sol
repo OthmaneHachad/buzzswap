@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "../interfaces/IBondingCurve.sol";
 
 contract ConstantSumCurve is IBondingCurve {
+    constructor() {}
     /**
      * Notes:
      *      - NO slippage

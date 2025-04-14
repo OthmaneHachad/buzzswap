@@ -8,7 +8,9 @@ contract BuzzSwapFactory {
     address[] public allPairs;
 
     address public feeTo;
-    address public feeToSetter;
+    address public feeToSetter; // admin that decides who gets the fee
+
+    
 
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
 
@@ -16,12 +18,14 @@ contract BuzzSwapFactory {
         feeToSetter = _feeToSetter;
     }
 
-    function createPair(address tokenA, address tokenB) external returns (address pair) {
+    function createPair(address tokenA, address tokenB, address bondingCurve) external returns (address pair) {
         require(tokenA != tokenB, "BuzzSwap: IDENTICAL_ADDRESSES");
+        require(bondingCurve != address(0), "BuzzSwap: INVALID_CURVE");
 
         (address token0, address token1) = tokenA < tokenB
             ? (tokenA, tokenB)
             : (tokenB, tokenA);
+
         require(token0 != address(0), "BuzzSwap: ZERO_ADDRESS");
         require(getPair[token0][token1] == address(0), "BuzzSwap: PAIR_EXISTS");
 
@@ -33,13 +37,17 @@ contract BuzzSwapFactory {
             pair := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
 
-        BuzzSwapPair(pair).initialize(token0, token1);
-
+        BuzzSwapPair(pair).initialize(token0, token1, bondingCurve);
         getPair[token0][token1] = pair;
         getPair[token1][token0] = pair; // enable reverse lookup
-        allPairs.push(pair);
 
+        allPairs.push(pair);
         emit PairCreated(token0, token1, pair, allPairs.length);
+    }
+
+    function getSortedPair(address tokenA, address tokenB) external view returns (address) {
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        return getPair[token0][token1];
     }
 
     function allPairsLength() external view returns (uint) {
@@ -62,5 +70,17 @@ contract BuzzSwapFactory {
     function setFeeToSetter(address _feeToSetter) external {
         require(msg.sender == feeToSetter, "BuzzSwap: FORBIDDEN");
         feeToSetter = _feeToSetter;
+    }
+
+    function getAllPairs() external view returns (address[] memory) {
+        return allPairs;
+    }
+
+    function getFeeTo() external view returns (address) {
+        return feeTo;
+    }
+
+    function getFeeToSetter() external view returns (address) {
+        return feeToSetter;
     }
 }
