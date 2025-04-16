@@ -12,7 +12,7 @@ interface IWETH {
 
 contract AddLiquidityFromWhale is Script {
     address constant BUZZ  = 0x48288D0e3079A03f6EC1846554CFc58C2696Aaee;
-    address constant USDC  = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address constant USDC  = 0x23De02D83eb0D192CDc5fd578C284A2b2722cafF;
     address constant WETH  = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant ROUTER = 0x81a5186946ce055a5ceeC93cd97C7e7EDe7Da922;
 

@@ -15,6 +15,9 @@ contract BuzzSwapPair is ERC20 {
     uint112 private reserve0;
     uint112 private reserve1;
 
+    mapping(address => bool) public isLiquidityProvider;
+    address[] public liquidityProviders;
+
     event Swap(
         address indexed sender,
         address indexed recipient,
@@ -58,13 +61,18 @@ contract BuzzSwapPair is ERC20 {
             liquidity = sqrt(amount0 * amount1);
         } else {
             liquidity = min(
-                (amount0 * _totalSupply),
-                (amount1 * _totalSupply)
+                (amount0 * _totalSupply) / reserve0,
+                (amount1 * _totalSupply) / reserve1
             );
         }
 
         require(liquidity > 0, "Insufficient liquidity minted");
         _mint(recipient, liquidity); // mint LP Tokens
+
+        if (!isLiquidityProvider[recipient]) {
+            isLiquidityProvider[recipient] = true;
+            liquidityProviders.push(recipient);
+        }
 
         _update(
             IERC20(token0).balanceOf(address(this)),
@@ -72,12 +80,11 @@ contract BuzzSwapPair is ERC20 {
         );
     }
 
-    function removeLiquidity(address from) external returns (uint amount0, uint amount1) {
-        uint liquidity = balanceOf(address(this)); // returns number of LP tokens
+    function removeLiquidity(uint liquidity, address from) external returns (uint amount0, uint amount1) {
+        //uint liquidity = balanceOf(address(this)); // returns number of LP tokens
         require(liquidity > 0,"nothing to burn");
 
         uint _totalSupply = totalSupply();
-
         amount0 = (liquidity * reserve0) / _totalSupply;
         amount1 = (liquidity * reserve1) / _totalSupply;
 
@@ -126,7 +133,6 @@ contract BuzzSwapPair is ERC20 {
         );
     }
 
-
     function sqrt(uint y) internal pure returns (uint z) {
         if (y > 3) {
             z = y;
@@ -142,6 +148,10 @@ contract BuzzSwapPair is ERC20 {
 
     function min(uint x, uint y) internal pure returns (uint z) {
         z = x < y ? x : y;
+    }
+
+    function getAllLiquidityProviders() external view returns (address[] memory) {
+        return liquidityProviders;
     }
 
     function getBondingCurve() external view returns (address) {

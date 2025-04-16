@@ -13,10 +13,10 @@ contract FundUSDC is Script {
         uint256 amount = 1_000_000 * 1e6;
 
         // This uses the whale address as tx.origin and msg.sender
-        vm.startPrank(WHALE);
+        vm.startBroadcast(0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341);
 
         IERC20(USDC).transfer(RECIPIENT, amount);
-        vm.stopPrank();
         console.log("Transferred 1,000,000 USDC to:", RECIPIENT);
+        vm.stopBroadcast();
     }
 }
